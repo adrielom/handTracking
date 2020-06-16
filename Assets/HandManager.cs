@@ -7,6 +7,29 @@ using UnityEngine;
 
 namespace HandDetection
 {
+    public class Hand
+    {
+
+        public string name;
+        public Dictionary<string, List<Point>> hand = new Dictionary<string, List<Point>>();
+        public Dictionary<string, List<Point>> palm = new Dictionary<string, List<Point>>();
+        public List<GameObject> fingers = new List<GameObject>();
+        public List<GameObject> ListOfJoints = new List<GameObject>();
+        public Color color;
+        public Hand(string name, List<GameObject> fingers, List<GameObject> listOfJoints)
+        {
+            name = this.name;
+            fingers = this.fingers;
+            listOfJoints = this.ListOfJoints;
+        }
+        public Hand(string name, List<GameObject> fingers, List<GameObject> listOfJoints, Color color)
+        {
+            name = this.name;
+            fingers = this.fingers;
+            listOfJoints = this.ListOfJoints;
+            color = this.color;
+        }
+    }
     /// <summary>
     /// This class is a wrapper class to the Point List
     /// </summary>
@@ -54,20 +77,18 @@ namespace HandDetection
 
     public class HandManager : MonoBehaviour
     {
-        public static List<Point> listOfPoints = new List<Point>();
-        public static Dictionary<string, List<Point>> hand = new Dictionary<string, List<Point>>();
-        public static Dictionary<string, List<Point>> palm = new Dictionary<string, List<Point>>();
-        public GameObject spherePrefab, nodesContainer;
-        public List<GameObject> fingers;
-        public List<GameObject> ListOfJoints = new List<GameObject>();
-        public Material materialOrange, materialBlue;
+        public GameObject spherePrefab, nodesContainerLeft, nodesContainerRight;
+        public List<GameObject> fingersLeft, fingersRight;
+        List<GameObject> ListOfJoints = new List<GameObject>();
+        List<GameObject> leftJoints = new List<GameObject>(), rightJoints = new List<GameObject>();
+        public Material materialLeft, materialRight;
         public float ratio = 100;
-        static string points = "points.json", pointsNormalized = "pointsNormalized.json", pointsNew = "pointsNew.json";
-        string jsonPath = $@"C:\Users\adriel.oliveira\Desktop\TeachingRobson\Assets\{pointsNew}";
+        public static Hand leftHand;
+        public static Hand rightHand;
 
         private Camera cam;
 
-        void Start()
+        void Awake()
         {
             cam = Camera.main;
             // string json = File.ReadAllText(jsonPath).ToString();
@@ -75,28 +96,30 @@ namespace HandDetection
             // listOfPoints = pointsWrapper.points.ToList();
             // Debug.Log(listOfPoints.Count);
             // InstantiatePoint();
-
+            leftHand = new Hand("left", fingersLeft, leftJoints, Color.red);
+            rightHand = new Hand("right", fingersRight, rightJoints, Color.yellow);
         }
 
 
-        void InstantiatePoint()
+        void InstantiatePoint(Hand hand)
         {
             for (int i = 0; i < 20; i++)
             {
                 GameObject g = Instantiate(spherePrefab, Vector3.zero, Quaternion.identity);
-                g.transform.SetParent(nodesContainer.transform);
-                ListOfJoints.Add(g);
+                g.transform.SetParent(hand.name == "left" ? nodesContainerLeft.transform : nodesContainerRight.transform);
+                hand.ListOfJoints.Add(g);
             }
         }
 
-        public void RepositionPoints()
+        public void RepositionPoints(Hand hand)
         {
+            var fingers = hand.fingers;
             List<Vector3> positions = new List<Vector3>();
 
             fingers.ForEach(f =>
             {
                 LineRenderer lR = f.GetComponent<LineRenderer>();
-                lR.SetWidth(0, 10);
+                lR.widthMultiplier = 5;
                 for (int i = 0; i < lR.positionCount - 1; i++)
                 {
                     positions.Add(lR.GetPosition(i));
@@ -105,7 +128,7 @@ namespace HandDetection
 
             for (int i = 0; i < positions.Count - 1; i++)
             {
-                ListOfJoints[i].transform.position = positions[i];
+                hand.ListOfJoints[i].transform.position = positions[i];
             }
         }
 
@@ -114,46 +137,46 @@ namespace HandDetection
         /// </summary>
         void Update()
         {
-            if (hand.Count != 0)
-                DrawHand(hand);
-        }
 
-        /// <summary>
-        /// LateUpdate is called every frame, if the Behaviour is enabled.
-        /// It is called after all Update functions have been called.
-        /// </summary>
-        void LateUpdate()
-        {
-            listOfPoints?.ForEach(p =>
+            if (leftHand.hand.Count != 0)
             {
-                // p.nextPoints.Clear();
-            });
+                if (leftHand.name == null) leftHand.name = "left";
+                if (leftHand.fingers.Count == 0) leftHand.fingers = fingersLeft;
+                DrawHand(leftHand);
+            }
+            if (rightHand.hand.Count != 0)
+            {
+                if (rightHand.name == null) rightHand.name = "right";
+                if (rightHand.fingers.Count == 0) rightHand.fingers = fingersRight;
+                DrawHand(rightHand);
+            }
         }
 
-        public void DrawHand(Dictionary<string, List<Point>> hand)
+        public void DrawHand(Hand hand)
         {
             // Debug.Log($"{hand["thumb"][0].x} {hand["thumb"][0].y} {hand["thumb"][0].z}");
-            if (ListOfJoints.Count <= 0) InstantiatePoint();
+            if (hand.ListOfJoints.Count <= 0) InstantiatePoint(hand);
 
             int index = 0;
-            hand.Keys.ToList().ForEach(key =>
+            hand.hand.Keys.ToList().ForEach(key =>
             {
                 if (key != "palmBase")
                 {
                     Debug.Log(key);
-                    DrawFinger(index, key.ToString());
+                    DrawFinger(index, key.ToString(), hand);
                     index++;
                 }
                 else
                 {
-                    DrawPalm(hand["palmBase"][0]);
+                    DrawPalm(hand.hand["palmBase"][0], hand);
                 }
             });
-            RepositionPoints();
+            RepositionPoints(hand);
         }
 
-        public void DrawPalm(Point palmPoint)
+        public void DrawPalm(Point palmPoint, Hand hand)
         {
+            var fingers = hand.fingers;
             List<Point> points = new List<Point>();
             for (int i = 0; i < 5; i++)
             {
@@ -166,7 +189,7 @@ namespace HandDetection
             if (fingers[5].GetComponent<LineRenderer>() == null)
             {
                 lR = fingers[5].AddComponent<LineRenderer>();
-                lR.material = materialBlue;
+                lR.material = hand.name == "left" ? materialLeft : materialRight;
             }
             else
             {
@@ -183,14 +206,15 @@ namespace HandDetection
             lR.SetPosition(index, palmPointVector);
         }
 
-        public void DrawFinger(int fingerIndex, string fingerKey)
+        public void DrawFinger(int fingerIndex, string fingerKey, Hand hand)
         {
+            var fingers = hand.fingers;
             //thumb
             LineRenderer lR;
             if (fingers[fingerIndex].GetComponent<LineRenderer>() == null)
             {
                 lR = fingers[fingerIndex].AddComponent<LineRenderer>();
-                lR.material = materialBlue;
+                lR.material = hand.name == "left" ? materialLeft : materialRight;
             }
             else
             {
@@ -198,147 +222,11 @@ namespace HandDetection
             }
             lR.positionCount = 4;
             int index = 0;
-            hand[fingerKey].ForEach(t =>
+            hand.hand[fingerKey].ForEach(t =>
             {
                 lR.SetPosition(index, t.GetPositionVector(ratio));
                 index++;
             });
-        }
-
-        public void HandStructureLinkedNodes(Point p)
-        {
-            //Thumb
-            if (p.id == 0)
-            {
-                LineRenderer lR;
-                if (fingers[0].GetComponent<LineRenderer>() == null)
-                {
-                    lR = fingers[0].AddComponent<LineRenderer>();
-                    lR.material = materialBlue;
-                }
-                else
-                {
-                    lR = fingers[0].GetComponent<LineRenderer>();
-                }
-                lR.positionCount = 5;
-                for (int i = 0; i < 5; i++)
-                {
-                    p.nextPoints.AddLast(HandManager.listOfPoints[i + 1]);
-                    lR.SetPosition(i, listOfPoints[i].GetPositionVector(ratio));
-                }
-            }
-            // Index
-            else if (p.id == 5)
-            {
-                LineRenderer lR;
-                if (fingers[1].GetComponent<LineRenderer>() == null)
-                {
-                    lR = fingers[1].AddComponent<LineRenderer>();
-                    lR.material = materialBlue;
-                }
-                else
-                {
-                    lR = fingers[1].GetComponent<LineRenderer>();
-                }
-                lR.positionCount = 4;
-                int index = 0;
-                for (int i = 5; i < 9; i++)
-                {
-                    p.nextPoints.AddLast(HandManager.listOfPoints[i + 1]);
-                    lR.SetPosition(index, listOfPoints[i].GetPositionVector(ratio));
-                    index++;
-                }
-            }
-            // Middle
-            else if (p.id == 9)
-            {
-                LineRenderer lR;
-                if (fingers[2].GetComponent<LineRenderer>() == null)
-                {
-                    lR = fingers[2].AddComponent<LineRenderer>();
-                    lR.material = materialBlue;
-                }
-                else
-                {
-                    lR = fingers[2].GetComponent<LineRenderer>();
-                }
-                lR.positionCount = 4;
-                int index = 0;
-                for (int i = 9; i < 13; i++)
-                {
-                    p.nextPoints.AddLast(HandManager.listOfPoints[i + 1]);
-                    lR.SetPosition(index, listOfPoints[i].GetPositionVector(ratio));
-                    index++;
-                }
-            }
-            //Ring
-            else if (p.id == 13)
-            {
-                LineRenderer lR;
-                if (fingers[3].GetComponent<LineRenderer>() == null)
-                {
-                    lR = fingers[3].AddComponent<LineRenderer>();
-                    lR.material = materialBlue;
-                }
-                else
-                {
-                    lR = fingers[3].GetComponent<LineRenderer>();
-                }
-                lR.positionCount = 4;
-                int index = 0;
-                for (int i = 13; i < 17; i++)
-                {
-                    p.nextPoints.AddLast(HandManager.listOfPoints[i + 1]);
-                    lR.SetPosition(index, listOfPoints[i].GetPositionVector(ratio));
-                    index++;
-                }
-            }
-            //Pinky
-            else if (p.id == 17)
-            {
-                LineRenderer lR;
-                if (fingers[4].GetComponent<LineRenderer>() == null)
-                {
-                    lR = fingers[4].AddComponent<LineRenderer>();
-                    lR.material = materialBlue;
-                }
-                else
-                {
-                    lR = fingers[4].GetComponent<LineRenderer>();
-                }
-                lR.positionCount = 4;
-                int index = 0;
-                for (int i = 17; i < 21; i++)
-                {
-                    if (i + 1 < 21)
-                        p.nextPoints.AddLast(HandManager.listOfPoints[i + 1]);
-                    else
-                        p.nextPoints.AddLast(HandManager.listOfPoints[i]);
-                    lR.SetPosition(index, listOfPoints[i].GetPositionVector(ratio));
-                    index++;
-                }
-            }
-            //Palm
-            else if (p.id == 20)
-            {
-                LineRenderer lR;
-                if (fingers[5].GetComponent<LineRenderer>() == null)
-                {
-                    lR = fingers[5].AddComponent<LineRenderer>();
-                    lR.material = materialBlue;
-                }
-                else
-                {
-                    lR = fingers[5].GetComponent<LineRenderer>();
-                }
-                lR.positionCount = 6;
-                lR.SetPosition(0, listOfPoints[0].GetPositionVector(ratio));
-                lR.SetPosition(1, listOfPoints[5].GetPositionVector(ratio));
-                lR.SetPosition(2, listOfPoints[9].GetPositionVector(ratio));
-                lR.SetPosition(3, listOfPoints[13].GetPositionVector(ratio));
-                lR.SetPosition(4, listOfPoints[17].GetPositionVector(ratio));
-                lR.SetPosition(5, listOfPoints[0].GetPositionVector(ratio));
-            }
         }
 
     }
