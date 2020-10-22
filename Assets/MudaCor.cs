@@ -6,28 +6,18 @@ using System.IO;
 public class MudaCor : MonoBehaviour
 {
 
-    public GameObject objeto;
-    public TextAsset texto;
-    int algumaPosicao = 0;
-    string[] nomes;
+    Color color;
+    MeshRenderer mesh;
 
     void Start() {
-        nomes = texto.text.Split('\n');
+        color = Color.red;
+        mesh = GetComponent<MeshRenderer>();
     }
 
-    public void InstanciarObjeto () {
-        GameObject go = Instantiate (objeto, transform.position, Quaternion.identity);
-        go.name = nomes[algumaPosicao];
-        algumaPosicao++;
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space)) {
-            InstanciarObjeto ();
-            Debug.Log(texto.text);
-        } 
-       
+    void OnCollisionEnter(Collision other) {
+        if (other.gameObject.name == "Sphere(Clone)" && mesh.material.color != color) {
+            mesh.material.color = color;
+            Debug.Log("hey");
+        }
     }
 }
